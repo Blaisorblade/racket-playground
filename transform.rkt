@@ -37,9 +37,11 @@
     ))
 
 (deriveP '(let ([x (+ 1 2)]) x))
-(normalize-term '(+ 1 (+ 2 3) (+ 4 5))) ; ==>
+(define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
+intermediate ; ==>
 '(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (+ 1 g1 g2)))
-(deriveP '(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (let ([g3 (+ 1 g1 g2)]) g3))))
+; Since standard-a-normal-form is disabled, we can run directly:
+(deriveP intermediate)
 
 (define (deriveAutomatonGoExpr name t)
   (match t
