@@ -22,12 +22,8 @@
     [`(let ([,x ,M1] ,M2))
      (normalize M1 (λ (N1)
                      `(let ([,x ,N1]) ,(normalize M2 k))))]
-    [`(,Fn . ,M*)
-     (normalize-name
-      Fn
-      (λ (t)
-        (normalize-name* M* (λ (t*)
-                              (k `(,t . ,t*))))))]
+    [`(,ids ...)
+     (normalize-name* ids (λ (t*) (k t*)))]
     [(? Value?)
      (k M)]
     ))
