@@ -32,14 +32,17 @@
      (k M)]
     ))
 
+(define (insert-name N k)
+  (let ([t (gensym)])
+    `(let ([,t ,N]) ,(k t))))
+
 (define (normalize-name M k)
   (normalize
    M
    (λ (N)
      (if (Value? N)
          (k N)
-         (let ([t (gensym)])
-           `(let ([,t ,N]) ,(k t)))))))
+         (insert-name N k)))))
 
 (define (normalize-name* M* k)
   (if (null? M*)
