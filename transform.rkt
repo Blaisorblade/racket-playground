@@ -27,8 +27,8 @@
 (define (deriveP t)
   (match t
     [(? var?) (derivePVar t)]
-    [`(let ([,x (,fn . ,args)]) ,body)
-     `(let ([,(derivePVar x) (,(der-mapper (cons fn x)) ,@(map deriveP args))]) ,(deriveP body))]
+    [`(let ([,x (,f . ,args)]) ,body)
+     `(let ([,(derivePVar x) (,(der-mapper (cons f x)) ,@(map deriveP args))]) ,(deriveP body))]
     [`(let ([,x ,(? Value? v)]) ,body)
      `(let ([,(derivePVar x) ,(deriveP v)]) ,(deriveP body))]
     [(? Value?)
