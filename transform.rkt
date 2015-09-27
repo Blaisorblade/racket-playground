@@ -3,14 +3,12 @@
 (module+ test
   (require rackunit))
 
-(define ((symbol-format formatStr) symbol) (string->symbol (format formatStr symbol)))
-
 (module+ test
   (check-equal? ((symbol-format "foo~a") 'bar) 'foobar))
 
 (define (name-mapper fun)
   (let ([hash (make-hash)])
-    (λ (name) (hash-ref! hash name (gensym ((symbol-format "~a:") (fun name)))))))
+    (λ (name) (hash-ref! hash name (gensym-preserving (fun name))))))
 
 (define (der-namer args)
   (match args
