@@ -10,10 +10,9 @@
   (let ([hash (make-hash)])
     (λ (name) (hash-ref! hash name (gensym-preserving (fun name))))))
 
-(define (der-namer args)
-  (match args
-    [`(,fName . ,resName)
-     (string->symbol (format "der_~a_~a" fName resName))]))
+(define/match (der-namer args)
+  [((cons fName resName))
+   (string->symbol (format "der_~a_~a" fName resName))])
 (define d-mapper (name-mapper (symbol-format "d_~a")))
 (define pair-name-mapper (name-mapper (symbol-format "~a_p")))
 (define der-mapper (name-mapper der-namer))
