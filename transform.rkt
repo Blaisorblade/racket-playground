@@ -17,6 +17,9 @@
 (define pair-name-mapper (name-mapper (symbol-format "~a_p")))
 (define der-mapper (name-mapper der-namer))
 
+(define d-pair-name-mapper (name-mapper (symbol-format "d_~a_p")))
+(define der-mapper-p (name-mapper (compose (symbol-format "~a'") der-namer)))
+
 (module+ test
   (define (mapped-foo) (d-mapper 'foo))
   (check-equal? (mapped-foo) (mapped-foo))
@@ -42,14 +45,41 @@ intermediate ; ==>
 ; Since standard-a-normal-form is disabled, we can run directly:
 (deriveP intermediate)
 
+; Currently params only contains derivatives, not base values.
+; This will probably fail for non-self-maintainable primitives, unless replacement changes are involved.
 (define (deriveAutomatonGoExpr name t)
-  (match t
-    [(? var?) `(cons ,t ,name)]))
-; XXX to change for the "automaton" variant.
+  (let go ([t t] [params '()] [k (λ (x) x)])
+    (match t
+      [`(let ([,x (,f ,args ...)]) ,body)
+       (let ([dxp (d-pair-name-mapper x)]
+             [dx (d-mapper x)]
+             [derX (der-mapper (cons f x))]
+             [derXp (der-mapper-p (cons f x))])
+         (go body (cons (cons derX derXp) params)
+             (λ (content)
+               (k `(let ([,dxp (,derX ,@(map deriveP args))]
+                         [,dx (car ,dxp)]
+                         [,derXp (cdr ,dxp)])
+                     ,content)))))]
+      [(? var?) (values (k `(cons ,(d-mapper t) (,name ,@(map cdr params)))) (map car params))] ; XXX apply name to updated params
+      [(? Value?) (values (k t) (map car params))])))
+
+#;(define (deriveAutomaton t)
+  (let ([name (gensym 'automaton)])
+    `(letrec ([,name ,(deriveAutomatonGoExpr name t)])
+       ,name)))
+
+; Changed for the "automaton" variant.
 (define (deriveDecl t)
   (match t
     [`[,f (λ (,args ...) ,fun-body)]
-     `(λ (,@(map derivePVar args)) ,(deriveP fun-body))]))
+     (let*-values ([(name) (gensym-preserving 'automaton)]
+                   [(automaton-body params) (deriveAutomatonGoExpr name fun-body)]
+                   [(automaton) `(λ (,@(append params (map derivePVar args))) #;,(deriveP fun-body) ,automaton-body)])
+       `(letrec ([,name ,automaton])
+          (,name . ,params)))
+     ;`(λ (,@(map derivePVar args)) ,(deriveP fun-body))
+     ]))
 ; (fix automaton.
 ;  (λ (fvs) (dArgs) derivative... (dRes, automaton newFVs)) fvs)
 
@@ -70,7 +100,7 @@ intermediate ; ==>
   (match t
     [`(let ([,f (λ (,args ...) ,fun-body)]) ,body)
      `(let ([,f (λ (,@args) ,(cacheExpr `[,f (λ (,@args) ,fun-body)] fun-body))]) ,(cacheDecl body))]
-    [else (cacheExpr `[,(gensym) (λ (,(gensym 'unit)) #f)] t)])) ;XXX f is just a dummy.
+    [else (cacheExpr `[,(gensym) (λ (,(gensym-preserving 'unit)) #f)] t)])) ;#f is just a dummy.
 
 (cacheDecl '(let ([f (λ (x1 x2) (let ([res (+ x1 x2)]) res))]) f))
 ; ==>
@@ -79,3 +109,24 @@ intermediate ; ==>
           (let ((res_p (+ x1 x2)) (res (car res_p)) (der_+_res (cdr res_p)))
             (cons res (λ (d_x1 d_x2) (let ((d_res (der_+_res d_x1 d_x2))) d_res)))))))
    (cons f (λ (d_unit) #f)))
+
+#|
+; Example of desired output:
+
+let y = iszero? x
+in y
+=>
+let
+ y_p = iszero? x
+ y = fst y_p
+ der_iszero?_y = snd y_p
+in (y, letrec aut =
+  (λ der_iszero?_y. λ d_x. ; Also x was bound -- that was the result of lambda-lifting.
+    let
+      d_y_p = der_iszero?_y d_x
+      d_y = fst d_y_p
+      der_iszero?_y' = snd d_y_p
+    in
+      (cons d_y (aut der_iszero?_y'))) ; Also x ⊕ d_x was passed.
+  in aut)
+|#
