@@ -35,8 +35,13 @@
      (k M)]
     ))
 
+(define ((symbol-format formatStr) symbol) (string->symbol (format formatStr symbol)))
+
+(define (gensym-preserving orig)
+  (gensym ((symbol-format "~a:") orig)))
+
 (define (insert-name N k)
-  (let ([t (gensym)])
+  (let ([t (gensym-preserving 'g)])
     `(let ([,t ,N]) ,(k t))))
 
 (define (normalize-name M k)

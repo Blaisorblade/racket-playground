@@ -3,19 +3,22 @@
 (module+ test
   (require rackunit))
 
-(define ((symbol-prefix prefix) symbol) (string->symbol (string-append prefix (symbol->string symbol))))
-(define ((symbol-suffix suffix) symbol) (string->symbol (string-append (symbol->string symbol) suffix)))
+(define ((symbol-format formatStr) symbol) (string->symbol (format formatStr symbol)))
 
 (module+ test
-  (check-equal? ((symbol-prefix "foo") 'bar) 'foobar))
+  (check-equal? ((symbol-format "foo~a") 'bar) 'foobar))
 
 (define (name-mapper fun)
   (let ([hash (make-hash)])
-    (λ (name) (hash-ref! hash name (gensym ((symbol-suffix "_") (fun name)))))))
+    (λ (name) (hash-ref! hash name (gensym ((symbol-format "~a:") (fun name)))))))
 
-(define d-mapper (name-mapper (symbol-prefix "d_")))
-(define der-mapper (name-mapper (symbol-prefix "der_")))
-(define pair-name-mapper (name-mapper (symbol-suffix "_p")))
+(define (der-namer args)
+  (match args
+    [`(,fName . ,resName)
+     (string->symbol (format "der_~a_~a" fName resName))]))
+(define d-mapper (name-mapper (symbol-format "d_~a")))
+(define pair-name-mapper (name-mapper (symbol-format "~a_p")))
+(define der-mapper (name-mapper der-namer))
 
 (module+ test
   (define (mapped-foo) (d-mapper 'foo))
@@ -28,7 +31,7 @@
   (match t
     [(? var?) (derivePVar t)]
     [`(let ([,x (,fn . ,args)]) ,body)
-     `(let ([,(derivePVar x) (,(der-mapper x) ,@(map deriveP args))]) ,(deriveP body))]
+     `(let ([,(derivePVar x) (,(der-mapper (cons fn x)) ,@(map deriveP args))]) ,(deriveP body))]
     [`(let ([,x ,(? Value? v)]) ,body)
      `(let ([,(derivePVar x) ,(deriveP v)]) ,(deriveP body))]
     [(? Value?)
@@ -57,7 +60,7 @@
       ; XXX Restrict this to the case f is fully applied and isn't a special primitive (see Value?)
       [`(let ([,x (,f ,args ...)]) ,body)
        (let ([xp (pair-name-mapper x)]
-             [derX (der-mapper x)])
+             [derX (der-mapper (cons f x))])
          `(let ([,xp (,f ,@args)]
                 [,x (car ,xp)]
                 [,derX (cdr ,xp)])
@@ -74,6 +77,6 @@
 ; ==>
 #; '(let ((f
         (λ (x1 x2)
-          (let ((res_p (+ x1 x2)) (res (car res_p)) (der_res (cdr res_p)))
-            (cons res (λ (d_x1 d_x2) (let ((d_res (der_res d_x1 d_x2))) d_res)))))))
+          (let ((res_p (+ x1 x2)) (res (car res_p)) (der_+_res (cdr res_p)))
+            (cons res (λ (d_x1 d_x2) (let ((d_res (der_+_res d_x1 d_x2))) d_res)))))))
    (cons f (λ (d_unit) #f)))
