@@ -59,4 +59,4 @@
             (k `(,t . ,t*))))))))
 
 (module+ test
-  (normalize-term '(+ 1 (+ 2 3))))
+  (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
