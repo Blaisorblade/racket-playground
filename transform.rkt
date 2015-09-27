@@ -72,7 +72,7 @@ intermediate ; ==>
 ; Changed for the "automaton" variant.
 (define (deriveDecl t)
   (match t
-    [`[,f (λ (,args ...) ,fun-body)]
+    [`(λ (,args ...) ,fun-body)
      (let*-values ([(name) (gensym-preserving 'automaton)]
                    [(automaton-body params) (deriveAutomatonGoExpr name fun-body)]
                    [(automaton) `(λ (,@(append params (map derivePVar args))) #;,(deriveP fun-body) ,automaton-body)])
@@ -99,8 +99,8 @@ intermediate ; ==>
 (define (cacheDecl t)
   (match t
     [`(let ([,f (λ (,args ...) ,fun-body)]) ,body)
-     `(let ([,f (λ (,@args) ,(cacheExpr `[,f (λ (,@args) ,fun-body)] fun-body))]) ,(cacheDecl body))]
-    [else (cacheExpr `[,(gensym) (λ (,(gensym-preserving 'unit)) #f)] t)])) ;#f is just a dummy.
+     `(let ([,f (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
+    [else (cacheExpr `(λ (,(gensym-preserving 'unit)) #f) t)])) ;#f is just a dummy.
 
 (cacheDecl '(let ([f (λ (x1 x2) (let ([res (+ x1 x2)]) res))]) f))
 ; ==>
