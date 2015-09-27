@@ -15,6 +15,8 @@
 (define (normalize-term M)
   (normalize M (λ (x) x)))
 
+; If #t, we allow expressions in tail position, rather than just identifiers.
+(define standard-a-normal-form #t)
 (define (normalize M k)
   (match M
     [`(λ ,params ,body)
@@ -23,7 +25,12 @@
      (normalize M1 (λ (N1)
                      `(let ([,x ,N1]) ,(normalize M2 k))))]
     [`(,ids ...)
-     (normalize-name* ids (λ (t*) (k t*)))]
+     (normalize-name*
+      ids
+      (λ (t*)
+        (if standard-a-normal-form
+            (k t*)
+            (insert-name `(,@t*) k))))]
     [(? Value?)
      (k M)]
     ))
