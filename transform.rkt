@@ -112,21 +112,44 @@
 
 ;; Examples
 
-(deriveP '(let ([x (+ 1 2)]) x))
-(define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
-intermediate ; ==>
-'(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (+ 1 g1 g2)))
+;(deriveP '(let ([x (+ 1 2)]) x))
+;(define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
+;intermediate ; ==>
+;'(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (+ 1 g1 g2)))
 ; Since standard-a-normal-form is disabled, we can run directly:
-(deriveP intermediate)
+;(deriveP intermediate)
 
-(cacheDecl '(let ([f (λ (x1 x2) (let ([res (+ x1 x2)]) res))]) f))
+(cacheDecl
+ '(let ([f (λ (x1 x2)
+             (let ([res (+ x1 x2)])
+               res))])
+    f))
 ; ==>
-#; '(let ((f
+#;'(let ((f
         (λ (x1 x2)
-          (let ((res_p (+ x1 x2)) (res (car res_p)) (der_+_res (cdr res_p)))
-            (cons res (λ (d_x1 d_x2) (let ((d_res (der_+_res d_x1 d_x2))) d_res)))))))
-   (cons f (λ (d_unit) #f)))
+          (let ((res_p (+ x1 x2))
+                (res (car res_p))
+                (der_+_res (cdr res_p)))
+            (cons
+             res
+             (letrec ([automaton (λ (der_+_res)
+                                   (λ (d_x1 d_x2)
+                                     (let ((d_res_p (der_+_res d_x1 d_x2))
+                                           (d_res (car d_res_p))
+                                           (|der_+_res'| (cdr d_res_p)))
+                                       (cons d_res (automaton |der_+_res'|)))))])
+               (automaton der_+_res)))))))
+   (cons f (letrec ((automaton (λ (d_unit) #f)))
+             (automaton))))
 
+(define foo-example (eval (cacheDecl
+ '(let ([f (λ (x1 x2)
+             (let ([res (+ x1 x2)])
+               (let ([foo (+ res x1)])
+                 foo)))])
+    f)) base-namespace))
+
+; GOAL: run ((car foo-example) 1 2)
 #|
 ; Example of desired output:
 
