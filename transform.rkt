@@ -130,11 +130,37 @@
 ; Since standard-a-normal-form is disabled, we can run directly:
 ;(deriveP intermediate)
 
-(cacheDecl
- '(let ([f (λ (x1 x2)
-             (let ([res (+ x1 x2)])
-               res))])
-    f))
+; Derivative of plus. By chance, this works with either replacement changes or additive changes.
+(define (d_+ d_a d_b) (+ d_a d_b))
+; "Caching +" (with an empty cache), similar to the output produced by the transformation. Many primitives could be similarly incrementalized.
+; Since there's no state, we could turn make-automaton into a constant.
+(define (+/cached a b)
+  (cons
+   (+ a b)
+   (letrec ([make-automaton (λ ()
+                              (λ (d_a d_b)
+                                (cons (d_+ d_a d_b) (make-automaton))))])
+     (make-automaton))))
+
+(module+ test
+  (check-equal? (car (+/cached 1 2)) 3)
+  (check-equal? (car ((cdr (+/cached 1 2)) 4 5)) 9))
+
+; XXX Hack to ensure the output uses +/cached as the name of the augmented +, instead of +/cached:NNN.
+(hash-ref! func-mapper-hash '+ '+/cached)
+
+; XXX Load the namespace of the current module. Currently we just need +/cached in.
+(define-namespace-anchor this-module-namespace-anchor)
+
+(define this-module-namespace
+  (namespace-anchor->namespace this-module-namespace-anchor))
+
+(define example-1
+  (cacheDecl
+   '(let ([f (λ (x1 x2)
+               (let ([res (+ x1 x2)])
+                 res))])
+      f)))
 ; ==>
 #;'(let ((f
         (λ (x1 x2)
@@ -153,14 +179,37 @@
    (cons f (letrec ((automaton (λ (d_unit) #f)))
              (automaton))))
 
-(define foo-example (eval (cacheDecl
- '(let ([f (λ (x1 x2)
-             (let ([res (+ x1 x2)])
-               (let ([foo (+ res x1)])
-                 foo)))])
-    f)) base-namespace))
+(define example-2
+   (cacheDecl
+    '(let ([f (λ (x1 x2)
+                (let ([res (+ x1 x2)])
+                  (let ([foo (+ res x1)])
+                    foo)))])
+       f)))
+(define (eval-example s-expr)
+  (eval s-expr this-module-namespace))
 
-; GOAL: run ((car foo-example) 1 2)
+example-1
+example-2
+(define example-1-eval (eval-example example-1))
+(define example-2-eval (eval-example example-2))
+
+; For testing.
+(define (step example-eval)
+  (let*
+   ([step-1 ((car example-eval) 1 2)]
+    [step-2 ((cdr step-1) 5 6)]
+    [step-3 ((cdr step-2) 7 8)])
+    (values step-1 step-2 step-3)))
+
+
+(module+ test
+  (define-values (ex-1-step-1 ex-1-step-2 ex-1-step-3) (step example-1-eval))
+  (define-values (ex-2-step-1 ex-2-step-2 ex-2-step-3) (step example-2-eval))
+  ex-1-step-1 ex-1-step-2 ex-1-step-3
+  ex-2-step-1 ex-2-step-2 ex-2-step-3
+  )
+
 #|
 ; Example of desired output:
 
