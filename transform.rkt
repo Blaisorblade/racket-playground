@@ -7,39 +7,38 @@
 (module+ test
   (check-equal? ((symbol-format "foo~a") 'bar) 'foobar))
 
-(define (merge-maps x1 x2 map1 map2)
-  (let ([fresh (gensym)])
-    (values (hash-set map1 x1 fresh) (hash-set map2 x2 fresh))))
+(define (merge-maps x1 x2 maps)
+  (match-let ([fresh (gensym)]
+              [(cons map1 map2) maps])
+    (cons (hash-set map1 x1 fresh) (hash-set map2 x2 fresh))))
 
-(define (merge-maps* xs1 xs2 map1 map2)
-  (for/fold ([map1* map1] [map2* map2])
+(define (merge-maps* xs1 xs2 maps)
+  (for/fold ([maps* maps])
             ([x1 xs1] [x2 xs2])
-    (merge-maps x1 x2 map1* map2*)))
+    (merge-maps x1 x2 maps*)))
 
 ; Restricted to our object language.
 (define (alpha-equiv t1 t2)
-  (let alpha-equiv-go ([t1 t1] [t2 t2] [map1 (make-immutable-hasheq)] [map2 (make-immutable-hasheq)])
+  (let alpha-equiv-go ([t1 t1] [t2 t2] [maps (cons (make-immutable-hasheq) (make-immutable-hasheq))])
     (match* (t1 t2)
       [(`(let ([,x1 ,t1]) ,body1) `(let ([,x2 ,t2]) ,body2))
-       (let-values
-           ([(map1* map2*) (merge-maps x1 x2 map1 map2)])
-         (and (alpha-equiv-go t1 t2 map1 map2)
-              (alpha-equiv-go body1 body2 map1* map2*)))]
+       (let ([maps* (merge-maps x1 x2 maps)])
+         (and (alpha-equiv-go t1 t2 maps)
+              (alpha-equiv-go body1 body2 maps*)))]
       [(`(letrec ((,x1 ,t1)) ,body1) `(letrec ((,x2 ,t2)) ,body2))
-       (let-values
-           ([(map1* map2*) (merge-maps x1 x2 map1 map2)])
-         (and (alpha-equiv-go t1 t2 map1* map2*)
-              (alpha-equiv-go body1 body2 map1* map2*)))]
+       (let ([maps* (merge-maps x1 x2 maps)])
+         (and (alpha-equiv-go t1 t2 maps*)
+              (alpha-equiv-go body1 body2 maps*)))]
       [(`(λ (,xs1 ...) ,body1) `(λ (,xs2 ...) ,body2))
-       (let-values
-           ([(map1* map2*) (merge-maps* xs1 xs2 map1 map2)])
+       (let ([maps* (merge-maps* xs1 xs2 maps)])
          (and (equal? (length xs1) (length xs2))
-              (alpha-equiv-go body1 body2 map1* map2*)))]
+              (alpha-equiv-go body1 body2 maps*)))]
       [(`(,ops1 ...) `(,ops2 ...))
        (and (equal? (length ops1) (length ops2))
-            (andmap (λ (op1 op2) (alpha-equiv-go op1 op2 map1 map2)) ops1 ops2))]
+            (andmap (λ (op1 op2) (alpha-equiv-go op1 op2 maps)) ops1 ops2))]
       [((? var?) (? var?))
-       (equal? (hash-ref map1 t1 t1) (hash-ref map2 t2 t2))]
+       (match-let ([(cons map1 map2) maps])
+         (equal? (hash-ref map1 t1 t1) (hash-ref map2 t2 t2)))]
       [((? Value?) (? Value?))
        (equal? t1 t2)]
       [(else else)
