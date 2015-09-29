@@ -50,13 +50,6 @@
      t] ; XXX That's how we derive primitive values. Apparently, we're using replacement values always :-D.
     ))
 
-(deriveP '(let ([x (+ 1 2)]) x))
-(define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
-intermediate ; ==>
-'(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (+ 1 g1 g2)))
-; Since standard-a-normal-form is disabled, we can run directly:
-(deriveP intermediate)
-
 ; Currently params only contains derivatives, not base values.
 ; This will probably fail for non-self-maintainable primitives, unless replacement changes are involved.
 (define (deriveAutomatonGoExpr name t)
@@ -114,6 +107,15 @@ intermediate ; ==>
      (set-arity! f (length args))
      `(let ([,f (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
     [else (cacheExpr `(λ (,(gensym-preserving 'unit)) #f) t)])) ;#f is just a dummy.
+
+;; Examples
+
+(deriveP '(let ([x (+ 1 2)]) x))
+(define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
+intermediate ; ==>
+'(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (+ 1 g1 g2)))
+; Since standard-a-normal-form is disabled, we can run directly:
+(deriveP intermediate)
 
 (cacheDecl '(let ([f (λ (x1 x2) (let ([res (+ x1 x2)]) res))]) f))
 ; ==>
