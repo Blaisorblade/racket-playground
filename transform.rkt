@@ -123,12 +123,12 @@
 
 ;; Examples
 
-;(deriveP '(let ([x (+ 1 2)]) x))
-;(define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
+(module+ test
+  (define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
 ;intermediate ; ==>
 ;'(let ((g1 (+ 2 3))) (let ((g2 (+ 4 5))) (+ 1 g1 g2)))
 ; Since standard-a-normal-form is disabled, we can run directly:
-;(deriveP intermediate)
+  (define d-intermediate (deriveP intermediate)))
 
 ; Derivative of plus. By chance, this works with either replacement changes or additive changes.
 (define (d_+ d_a d_b) (+ d_a d_b))
@@ -162,22 +162,22 @@
                  res))])
       f)))
 ; ==>
-#;'(let ((f
-        (λ (x1 x2)
-          (let ((res_p (+ x1 x2))
+'(let ((f/cached
+       (λ (x1 x2)
+         (let* ((res_p (+/cached x1 x2))
                 (res (car res_p))
                 (der_+_res (cdr res_p)))
-            (cons
-             res
-             (letrec ([automaton (λ (der_+_res)
-                                   (λ (d_x1 d_x2)
-                                     (let ((d_res_p (der_+_res d_x1 d_x2))
-                                           (d_res (car d_res_p))
-                                           (|der_+_res'| (cdr d_res_p)))
-                                       (cons d_res (automaton |der_+_res'|)))))])
-               (automaton der_+_res)))))))
-   (cons f (letrec ((automaton (λ (d_unit) #f)))
-             (automaton))))
+           (cons
+            res
+            (letrec ([make-automaton (λ (der_+_res)
+                                       (λ (d_x1 d_x2)
+                                         (let* ((d_res_p (der_+_res d_x1 d_x2))
+                                                (d_res (car d_res_p))
+                                                (|der_+_res'| (cdr d_res_p)))
+                                           (cons d_res (make-automaton |der_+_res'|)))))])
+              (make-automaton der_+_res)))))))
+  (cons f/cached (letrec ((make-automaton-2 (λ () (λ (d_unit) #f))))
+                   (make-automaton-2))))
 
 (define example-2
    (cacheDecl
