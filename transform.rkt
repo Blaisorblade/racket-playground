@@ -128,8 +128,7 @@
                    (let ([,dx (car ,dxp)])
                      (let ([,derXp (cdr ,dxp)])
                        ,content)))))))]
-      [(? var?) (values (kontext `(cons ,(d-mapper t) (,automaton-name ,@(map cdr automaton-state-old-new-var-pairs)))) (map car automaton-state-old-new-var-pairs))]
-      [(? Value?) (values (kontext t) (map car automaton-state-old-new-var-pairs))])))
+      [(or (? var?) (? Value?)) (values (kontext `(cons ,(deriveP t) (,automaton-name ,@(map cdr automaton-state-old-new-var-pairs)))) (map car automaton-state-old-new-var-pairs))])))
 
 ; Changed for the "automaton" variant.
 (define (deriveDecl t)
@@ -227,7 +226,7 @@
                                                      (let ((|der_+_res'| (cdr d_res_p)))
                                                        (cons d_res (make-automaton |der_+_res'|)))))))])
                       (make-automaton der_+_res)))))))))
-      (cons f/cached (letrec ((make-automaton-2 (λ () (λ (d_unit) #f))))
+      (cons f/cached (letrec ((make-automaton-2 (λ () (λ (d_unit) (cons #f (make-automaton-2))))))
                        (make-automaton-2))))))
 
 (define example-2
