@@ -8,7 +8,7 @@
   (check-equal? ((symbol-format "foo~a") 'bar) 'foobar))
 
 (define (name-mapper fun)
-  (let ([hash (make-hasheq)])
+  (let ([hash (make-hash)]) ; make-hasheq only works here if the input is hash-consed, e.g. for symbols, but breaks for der-mapper.
     (λ (name)
       (hash-ref! hash name (gensym-preserving (fun name))))))
 
