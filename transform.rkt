@@ -72,7 +72,7 @@
              [derXp (der-mapper-p (cons f x))])
          (go body (cons (cons derX derXp) params)
              (λ (content)
-               (kontext `(let ([,dxp (,derX ,@(map deriveP args))]
+               (kontext `(let* ([,dxp (,derX ,@(map deriveP args))] ; XXX should use nested lets!
                          [,dx (car ,dxp)]
                          [,derXp (cdr ,dxp)])
                      ,content)))))]
