@@ -145,7 +145,7 @@
 (define (cacheExpr toDerive t)
   (let go ([t t])
     (match t
-      ; XXX Restrict this to the case f is fully applied and isn't a special primitive (see Value?)
+      ; XXX Restrict this to the case f isn't a special primitive? (see Value?)
       [`(let ([,x (,f ,args ...)]) ,body)
        #:when (check-arity? f (length args))
        (let ([xp (pair-name-mapper x)]
