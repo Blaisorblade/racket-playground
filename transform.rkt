@@ -81,21 +81,14 @@
       [(? var?) (values (kontext `(cons ,(d-mapper t) (,name ,@(map cdr params)))) (map car params))]
       [(? Value?) (values (kontext t) (map car params))])))
 
-#;(define (deriveAutomaton t)
-  (let ([name (gensym 'make-automaton)])
-    `(letrec ([,name ,(deriveAutomatonGoExpr name t)])
-       ,name)))
-
 ; Changed for the "automaton" variant.
 (define (deriveDecl t)
   (match t
     [`(λ (,args ...) ,fun-body)
      (let*-values ([(name) (gensym-preserving 'make-automaton)]
-                   [(automaton-body params) (deriveAutomatonGoExpr name fun-body)]
-                   [(automaton) `(λ (,@params) (λ (,@(map derivePVar args)) #;,(deriveP fun-body) ,automaton-body))])
-       `(letrec ([,name ,automaton])
+                   [(automaton-body params) (deriveAutomatonGoExpr name fun-body)])
+       `(letrec ([,name (λ (,@params) (λ (,@(map derivePVar args)) #;,(deriveP fun-body) ,automaton-body))])
           (,name . ,params)))
-     ;`(λ (,@(map derivePVar args)) ,(deriveP fun-body))
      ]))
 ; (fix automaton.
 ;  (λ (fvs) (dArgs) derivative... (dRes, automaton newFVs)) fvs)
