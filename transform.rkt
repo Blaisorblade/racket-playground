@@ -177,11 +177,11 @@
 
 (define example-2
   (cacheDecl
-   '(let ([f (λ (x1 x2)
+   '(let ([g (λ (x1 x2)
                (let ([res (+ x1 x2)])
                  (let ([foo (+ res x1)])
                    foo)))])
-      f)))
+      g)))
 (define (eval-example s-expr)
   (eval s-expr this-module-namespace))
 
