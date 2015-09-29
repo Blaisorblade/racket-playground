@@ -65,7 +65,8 @@
 (define (deriveAutomatonGoExpr name t)
   (let go ([t t] [params '()] [kontext (λ (x) x)])
     (match t
-      [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args)) ; XXX
+      [`(let ([,x (,f ,args ...)]) ,body)
+       #:when (check-arity? f (length args)) ; XXX
        (let ([dxp (d-pair-name-mapper x)]
              [dx (d-mapper x)]
              [derX (der-mapper (cons f x))]
@@ -103,7 +104,8 @@
   (let go ([t t])
     (match t
       ; XXX Restrict this to the case f is fully applied and isn't a special primitive (see Value?)
-      [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args))
+      [`(let ([,x (,f ,args ...)]) ,body)
+       #:when (check-arity? f (length args))
        (let ([xp (pair-name-mapper x)]
              [derX (der-mapper (cons f x))])
          `(let ([,xp (,(func-mapper f) ,@args)])
