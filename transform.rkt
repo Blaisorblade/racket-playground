@@ -160,18 +160,18 @@
 ; ==>
 '(let ((f/cached
         (λ (x1 x2)
-          (let* ((res_p (+/cached x1 x2))
-                 (res (car res_p))
-                 (der_+_res (cdr res_p)))
-            (cons
-             res
-             (letrec ([make-automaton (λ (der_+_res)
-                                        (λ (d_x1 d_x2)
-                                          (let* ((d_res_p (der_+_res d_x1 d_x2))
-                                                 (d_res (car d_res_p))
-                                                 (|der_+_res'| (cdr d_res_p)))
-                                            (cons d_res (make-automaton |der_+_res'|)))))])
-               (make-automaton der_+_res)))))))
+          (let ((res_p (+/cached x1 x2)))
+            (let ((res (car res_p)))
+              (let ((der_+_res (cdr res_p)))
+                (cons
+                 res
+                 (letrec ([make-automaton (λ (der_+_res)
+                                            (λ (d_x1 d_x2)
+                                              (let ((d_res_p (der_+_res d_x1 d_x2)))
+                                                (let ((d_res (car d_res_p)))
+                                                  (let ((|der_+_res'| (cdr d_res_p)))
+                                                    (cons d_res (make-automaton |der_+_res'|)))))))])
+                   (make-automaton der_+_res)))))))))
    (cons f/cached (letrec ((make-automaton-2 (λ () (λ (d_unit) #f))))
                     (make-automaton-2))))
 
