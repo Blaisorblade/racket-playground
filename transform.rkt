@@ -8,7 +8,7 @@
   (check-equal? ((symbol-format "foo~a") 'bar) 'foobar))
 
 (define (name-mapper fun)
-  (let ([hash (make-hash)])
+  (let ([hash (make-hasheq)])
     (λ (name) (hash-ref! hash name (gensym-preserving (fun name))))))
 
 (define/match (der-namer args)
@@ -19,7 +19,8 @@
 (define der-mapper (name-mapper der-namer))
 
 ; Racket-specific, to compute arity of primitives like + in example.
-(define base-namespace (make-base-namespace))
+(define base-namespace (make-base-namespace)) ; This is just racket/base
+
 (define (quoted-primitive-arity prim) (procedure-arity (eval prim base-namespace)))
 
 ; We need a type-checker to check if applications are full... or at least, an arity-checker.
@@ -53,7 +54,7 @@
 ; Currently params only contains derivatives, not base values.
 ; This will probably fail for non-self-maintainable primitives, unless replacement changes are involved.
 (define (deriveAutomatonGoExpr name t)
-  (let go ([t t] [params '()] [k (λ (x) x)])
+  (let go ([t t] [params '()] [kontext (λ (x) x)])
     (match t
       [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args)) ; XXX
        (let ([dxp (d-pair-name-mapper x)]
@@ -62,15 +63,15 @@
              [derXp (der-mapper-p (cons f x))])
          (go body (cons (cons derX derXp) params)
              (λ (content)
-               (k `(let ([,dxp (,derX ,@(map deriveP args))]
+               (kontext `(let ([,dxp (,derX ,@(map deriveP args))]
                          [,dx (car ,dxp)]
                          [,derXp (cdr ,dxp)])
                      ,content)))))]
-      [(? var?) (values (k `(cons ,(d-mapper t) (,name ,@(map cdr params)))) (map car params))] ; XXX apply name to updated params
-      [(? Value?) (values (k t) (map car params))])))
+      [(? var?) (values (kontext `(cons ,(d-mapper t) (,name ,@(map cdr params)))) (map car params))]
+      [(? Value?) (values (kontext t) (map car params))])))
 
 #;(define (deriveAutomaton t)
-  (let ([name (gensym 'automaton)])
+  (let ([name (gensym 'make-automaton)])
     `(letrec ([,name ,(deriveAutomatonGoExpr name t)])
        ,name)))
 
@@ -78,9 +79,9 @@
 (define (deriveDecl t)
   (match t
     [`(λ (,args ...) ,fun-body)
-     (let*-values ([(name) (gensym-preserving 'automaton)]
+     (let*-values ([(name) (gensym-preserving 'make-automaton)]
                    [(automaton-body params) (deriveAutomatonGoExpr name fun-body)]
-                   [(automaton) `(λ (,@(append params (map derivePVar args))) #;,(deriveP fun-body) ,automaton-body)])
+                   [(automaton) `(λ (,@params) (λ (,@(map derivePVar args)) #;,(deriveP fun-body) ,automaton-body))])
        `(letrec ([,name ,automaton])
           (,name . ,params)))
      ;`(λ (,@(map derivePVar args)) ,(deriveP fun-body))
@@ -95,9 +96,9 @@
       [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args))
        (let ([xp (pair-name-mapper x)]
              [derX (der-mapper (cons f x))])
-         `(let ([,xp (,f ,@args)]
-                [,x (car ,xp)]
-                [,derX (cdr ,xp)])
+         `(let* ([,xp (,f ,@args)] ; XXX should use nested lets!
+                 [,x (car ,xp)]
+                 [,derX (cdr ,xp)])
             ,(go body)))]
       [(? var?) `(cons ,t ,(deriveDecl toDerive))])))
 
@@ -106,6 +107,7 @@
     [`(let ([,f (λ (,args ...) ,fun-body)]) ,body)
      (set-arity! f (length args))
      `(let ([,f (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
+
     [else (cacheExpr `(λ (,(gensym-preserving 'unit)) #f) t)])) ;#f is just a dummy.
 
 ;; Examples
