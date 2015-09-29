@@ -43,6 +43,9 @@
        (equal? t1 t2)]
       [(else else)
        (printf "alpha-equivalence can't compare ~a and ~a" t1 t2)
+       #f]
+      [(_ _)
+       (printf "alpha-equivalence found mismatch between ~a and ~a" t1 t2)
        #f])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
