@@ -147,7 +147,7 @@
   (check-equal? (car ((cdr (+/cached 1 2)) 4 5)) 9))
 
 ; XXX Hack to ensure the output uses +/cached as the name of the augmented +, instead of +/cached:NNN.
-(hash-ref! func-mapper-hash '+ '+/cached)
+(hash-set! func-mapper-hash '+ '+/cached)
 
 ; XXX Load the namespace of the current module. Currently we just need +/cached in.
 (define-namespace-anchor this-module-namespace-anchor)
