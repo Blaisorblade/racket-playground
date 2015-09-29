@@ -7,6 +7,45 @@
 (module+ test
   (check-equal? ((symbol-format "foo~a") 'bar) 'foobar))
 
+(define (merge-maps x1 x2 map1 map2)
+  (let ([fresh (gensym)])
+    (values (hash-set map1 x1 fresh) (hash-set map2 x2 fresh))))
+
+(define (merge-maps* xs1 xs2 map1 map2)
+  (for/fold ([map1* map1] [map2* map2])
+            ([x1 xs1] [x2 xs2])
+    (merge-maps x1 x2 map1* map2*)))
+
+; Restricted to our object language.
+(define (alpha-equiv t1 t2)
+  (let alpha-equiv-go ([t1 t1] [t2 t2] [map1 (make-immutable-hasheq)] [map2 (make-immutable-hasheq)])
+    (match* (t1 t2)
+      [(`(let ([,x1 ,t1]) ,body1) `(let ([,x2 ,t2]) ,body2))
+       (let-values
+           ([(map1* map2*) (merge-maps x1 x2 map1 map2)])
+         (and (alpha-equiv-go t1 t2 map1 map2)
+              (alpha-equiv-go body1 body2 map1* map2*)))]
+      [(`(letrec ((,x1 ,t1)) ,body1) `(letrec ((,x2 ,t2)) ,body2))
+       (let-values
+           ([(map1* map2*) (merge-maps x1 x2 map1 map2)])
+         (and (alpha-equiv-go t1 t2 map1* map2*)
+              (alpha-equiv-go body1 body2 map1* map2*)))]
+      [(`(λ (,xs1 ...) ,body1) `(λ (,xs2 ...) ,body2))
+       (let-values
+           ([(map1* map2*) (merge-maps* xs1 xs2 map1 map2)])
+         (and (equal? (length xs1) (length xs2))
+              (alpha-equiv-go body1 body2 map1* map2*)))]
+      [(`(,ops1 ...) `(,ops2 ...))
+       (and (equal? (length ops1) (length ops2))
+            (andmap (λ (op1 op2) (alpha-equiv-go op1 op2 map1 map2)) ops1 ops2))]
+      [((? var?) (? var?))
+       (equal? (hash-ref map1 t1 t1) (hash-ref map2 t2 t2))]
+      [((? Value?) (? Value?))
+       (equal? t1 t2)]
+      [(else else)
+       (printf "alpha-equivalence can't compare ~a and ~a" t1 t2)
+       #f])))
+
 (define (name-mapper fun)
   (let ([hash (make-hash)]) ; make-hasheq only works here if the input is hash-consed, e.g. for symbols, but breaks for der-mapper.
     (λ (name)
@@ -157,23 +196,27 @@
                (let ([res (+ x1 x2)])
                  res))])
       f)))
-; ==>
-'(let ((f/cached
-        (λ (x1 x2)
-          (let ((res_p (+/cached x1 x2)))
-            (let ((res (car res_p)))
-              (let ((der_+_res (cdr res_p)))
-                (cons
-                 res
-                 (letrec ([make-automaton (λ (der_+_res)
-                                            (λ (d_x1 d_x2)
-                                              (let ((d_res_p (der_+_res d_x1 d_x2)))
-                                                (let ((d_res (car d_res_p)))
-                                                  (let ((|der_+_res'| (cdr d_res_p)))
-                                                    (cons d_res (make-automaton |der_+_res'|)))))))])
-                   (make-automaton der_+_res)))))))))
-   (cons f/cached (letrec ((make-automaton-2 (λ () (λ (d_unit) #f))))
-                    (make-automaton-2))))
+
+(module+ test
+  (check
+   alpha-equiv
+   example-1
+   '(let ((f/cached
+           (λ (x1 x2)
+             (let ((res_p (+/cached x1 x2)))
+               (let ((res (car res_p)))
+                 (let ((der_+_res (cdr res_p)))
+                   (cons
+                    res
+                    (letrec ([make-automaton (λ (der_+_res)
+                                               (λ (d_x1 d_x2)
+                                                 (let ((d_res_p (der_+_res d_x1 d_x2)))
+                                                   (let ((d_res (car d_res_p)))
+                                                     (let ((|der_+_res'| (cdr d_res_p)))
+                                                       (cons d_res (make-automaton |der_+_res'|)))))))])
+                      (make-automaton der_+_res)))))))))
+      (cons f/cached (letrec ((make-automaton-2 (λ () (λ (d_unit) #f))))
+                       (make-automaton-2))))))
 
 (define example-2
   (cacheDecl
