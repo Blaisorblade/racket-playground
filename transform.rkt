@@ -69,7 +69,7 @@
 
 ; Later we need access to this hash, so we expose it.
 (define func-mapper-hash (make-hasheq))
-(define func-mapper (name-mapper* (symbol-format "~a/cached") func-mapper-hash))
+(define func-mapper (name-mapper* (symbol-format "~a/cached") func-mapper-hash)) ;\tilde{f} in Liu's papers.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Computing arities
