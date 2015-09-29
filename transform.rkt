@@ -72,10 +72,11 @@
              [derXp (der-mapper-p (cons f x))])
          (go body (cons (cons derX derXp) params)
              (λ (content)
-               (kontext `(let* ([,dxp (,derX ,@(map deriveP args))] ; XXX should use nested lets!
-                         [,dx (car ,dxp)]
-                         [,derXp (cdr ,dxp)])
-                     ,content)))))]
+               (kontext
+                `(let ([,dxp (,derX ,@(map deriveP args))])
+                   (let ([,dx (car ,dxp)])
+                     (let ([,derXp (cdr ,dxp)])
+                       ,content)))))))]
       [(? var?) (values (kontext `(cons ,(d-mapper t) (,name ,@(map cdr params)))) (map car params))]
       [(? Value?) (values (kontext t) (map car params))])))
 
@@ -105,10 +106,10 @@
       [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args))
        (let ([xp (pair-name-mapper x)]
              [derX (der-mapper (cons f x))])
-         `(let* ([,xp (,(func-mapper f) ,@args)] ; XXX should use nested lets!
-                 [,x (car ,xp)]
-                 [,derX (cdr ,xp)])
-            ,(go body)))]
+         `(let ([,xp (,(func-mapper f) ,@args)])
+            (let ([,x (car ,xp)])
+              (let ([,derX (cdr ,xp)])
+                ,(go body)))))]
       [(? var?)
        (let ([mapped-var-name (hash-ref func-mapper-hash t t)]) ; We need to only map function names, but nothing else.
          `(cons ,mapped-var-name ,(deriveDecl toDerive)))])))
