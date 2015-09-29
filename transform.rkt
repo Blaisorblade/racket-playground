@@ -18,6 +18,17 @@
 (define pair-name-mapper (name-mapper (symbol-format "~a_p")))
 (define der-mapper (name-mapper der-namer))
 
+; Racket-specific, to compute arity of primitives like + in example.
+(define base-namespace (make-base-namespace))
+(define (quoted-primitive-arity prim) (procedure-arity (eval prim base-namespace)))
+
+; We need a type-checker to check if applications are full... or at least, an arity-checker.
+; Handle global functions:
+(define arity-hash (make-hash))
+(define (set-arity! fun arity) (hash-set! arity-hash fun arity))
+(define (check-arity? fun arity) (arity-includes? (hash-ref arity-hash fun (quoted-primitive-arity fun)) arity))
+; What about partially-applied functions? Not that they're possible in this syntax...
+
 (define d-pair-name-mapper (name-mapper (symbol-format "d_~a_p")))
 (define der-mapper-p (name-mapper (compose (symbol-format "~a'") der-namer)))
 
@@ -51,7 +62,7 @@ intermediate ; ==>
 (define (deriveAutomatonGoExpr name t)
   (let go ([t t] [params '()] [k (λ (x) x)])
     (match t
-      [`(let ([,x (,f ,args ...)]) ,body)
+      [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args)) ; XXX
        (let ([dxp (d-pair-name-mapper x)]
              [dx (d-mapper x)]
              [derX (der-mapper (cons f x))]
@@ -88,7 +99,7 @@ intermediate ; ==>
   (let go ([t t])
     (match t
       ; XXX Restrict this to the case f is fully applied and isn't a special primitive (see Value?)
-      [`(let ([,x (,f ,args ...)]) ,body)
+      [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args))
        (let ([xp (pair-name-mapper x)]
              [derX (der-mapper (cons f x))])
          `(let ([,xp (,f ,@args)]
@@ -100,6 +111,7 @@ intermediate ; ==>
 (define (cacheDecl t)
   (match t
     [`(let ([,f (λ (,args ...) ,fun-body)]) ,body)
+     (set-arity! f (length args))
      `(let ([,f (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
     [else (cacheExpr `(λ (,(gensym-preserving 'unit)) #f) t)])) ;#f is just a dummy.
 
