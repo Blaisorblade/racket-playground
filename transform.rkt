@@ -9,7 +9,8 @@
 
 (define (name-mapper fun)
   (let ([hash (make-hasheq)])
-    (λ (name) (hash-ref! hash name (gensym-preserving (fun name))))))
+    (λ (name)
+      (hash-ref! hash name (gensym-preserving (fun name))))))
 
 (define/match (der-namer args)
   [((cons fName resName))
@@ -17,6 +18,14 @@
 (define d-mapper (name-mapper (symbol-format "d_~a")))
 (define pair-name-mapper (name-mapper (symbol-format "~a_p")))
 (define der-mapper (name-mapper der-namer))
+
+(define func-mapper-hash (make-hasheq))
+; XXX duplication from name-mapper!
+(define func-mapper
+  (let ([fun (symbol-format "~a/cached")]
+        [hash func-mapper-hash])
+    (λ (name)
+      (hash-ref! hash name (gensym-preserving (fun name))))))
 
 ; Racket-specific, to compute arity of primitives like + in example.
 (define base-namespace (make-base-namespace)) ; This is just racket/base
@@ -96,17 +105,19 @@
       [`(let ([,x (,f ,args ...)]) ,body) #:when (check-arity? f (length args))
        (let ([xp (pair-name-mapper x)]
              [derX (der-mapper (cons f x))])
-         `(let* ([,xp (,f ,@args)] ; XXX should use nested lets!
+         `(let* ([,xp (,(func-mapper f) ,@args)] ; XXX should use nested lets!
                  [,x (car ,xp)]
                  [,derX (cdr ,xp)])
             ,(go body)))]
-      [(? var?) `(cons ,t ,(deriveDecl toDerive))])))
+      [(? var?)
+       (let ([mapped-var-name (hash-ref func-mapper-hash t t)]) ; We need to only map function names, but nothing else.
+         `(cons ,mapped-var-name ,(deriveDecl toDerive)))])))
 
 (define (cacheDecl t)
   (match t
     [`(let ([,f (λ (,args ...) ,fun-body)]) ,body)
      (set-arity! f (length args))
-     `(let ([,f (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
+     `(let ([,(func-mapper f) (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
 
     [else (cacheExpr `(λ (,(gensym-preserving 'unit)) #f) t)])) ;#f is just a dummy.
 
