@@ -1,6 +1,7 @@
 #lang racket
 ; Adapted from http://matt.might.net/articles/a-normalization/, with some cosmetic changes.
-(provide (all-defined-out))
+(provide Value? normalize-term)
+(require "symbol-utils.rkt")
 (define (Value? M)
  (match M
    [`(quote ,_) #t]
@@ -34,11 +35,6 @@
     [(? Value?)
      (k M)]
     ))
-
-(define ((symbol-format formatStr) symbol) (string->symbol (format formatStr symbol)))
-
-(define (gensym-preserving orig)
-  (gensym ((symbol-format "~a:") orig)))
 
 (define (insert-name N k)
   (let ([t (gensym-preserving 'g)])

@@ -1,4 +1,5 @@
 #lang racket
+(require "symbol-utils.rkt")
 (require "a-normalize.rkt")
 (module+ test
   (require rackunit))
