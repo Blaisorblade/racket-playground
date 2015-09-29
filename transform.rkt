@@ -45,25 +45,32 @@
        (printf "alpha-equivalence can't compare ~a and ~a" t1 t2)
        #f])))
 
-(define (name-mapper fun)
-  (let ([hash (make-hash)]) ; make-hasheq only works here if the input is hash-consed, e.g. for symbols, but breaks for der-mapper.
-    (λ (name)
-      (hash-ref! hash name (gensym-preserving (fun name))))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Name transformers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define ((name-mapper* fun hash) name)
+  (hash-ref! hash name (gensym-preserving (fun name))))
+(define (name-mapper fun) (name-mapper* fun (make-hasheq)))
+
+(define d-mapper (name-mapper (symbol-format "d_~a")))
+(define pair-name-mapper (name-mapper (symbol-format "~a_p")))
+(define d-pair-name-mapper (name-mapper (symbol-format "d_~a_p")))
+
+; Trickier name transformers
 (define/match (der-namer args)
   [((cons fName resName))
    (string->symbol (format "der_~a_~a" fName resName))])
-(define d-mapper (name-mapper (symbol-format "d_~a")))
-(define pair-name-mapper (name-mapper (symbol-format "~a_p")))
-(define der-mapper (name-mapper der-namer))
+(define der-mapper (name-mapper* der-namer (make-hash))) ; make-hasheq only works here if the input is hash-consed, e.g. for symbols, but breaks here, so use make-hash.
+(define der-mapper-p (name-mapper* (compose (symbol-format "~a'") der-namer) (make-hash))) ;Ditto.
 
+; Later we need access to this hash, so we expose it.
 (define func-mapper-hash (make-hasheq))
-; XXX duplication from name-mapper!
-(define func-mapper
-  (let ([fun (symbol-format "~a/cached")]
-        [hash func-mapper-hash])
-    (λ (name)
-      (hash-ref! hash name (gensym-preserving (fun name))))))
+(define func-mapper (name-mapper* (symbol-format "~a/cached") func-mapper-hash))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Computing arities
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Racket-specific, to compute arity of primitives like + in example.
 (define base-namespace (make-base-namespace)) ; This is just racket/base
@@ -77,15 +84,17 @@
 (define (check-arity? fun arity) (arity-includes? (hash-ref arity-hash fun (quoted-primitive-arity fun)) arity))
 ; What about partially-applied functions? Not that they're possible in this syntax...
 
-(define d-pair-name-mapper (name-mapper (symbol-format "d_~a_p")))
-(define der-mapper-p (name-mapper (compose (symbol-format "~a'") der-namer)))
-
 (module+ test
   (define (mapped-foo) (d-mapper 'foo))
   (check-equal? (mapped-foo) (mapped-foo))
   (check-pred (λ (sym) (regexp-match #rx"^d_foo" (symbol->string sym))) (mapped-foo)))
 
 (define (var? v) (symbol? v))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Actual transforms.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define (derivePVar sym) (d-mapper sym))
 (define (deriveP t)
   (match t
@@ -152,10 +161,11 @@
     [`(let ([,f (λ (,args ...) ,fun-body)]) ,body)
      (set-arity! f (length args))
      `(let ([,(func-mapper f) (λ (,@args) ,(cacheExpr `(λ (,@args) ,fun-body) fun-body))]) ,(cacheDecl body))]
-
     [else (cacheExpr `(λ (,(gensym-preserving 'unit)) #f) t)])) ;#f is just a dummy.
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Examples
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (module+ test
   (define intermediate (normalize-term '(+ 1 (+ 2 3) (+ 4 5))))
