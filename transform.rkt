@@ -109,8 +109,8 @@
 
 ; Currently params only contains derivatives, not base values.
 ; This will probably fail for non-self-maintainable primitives, unless replacement changes are involved.
-(define (deriveAutomatonGoExpr name t)
-  (let go ([t t] [params '()] [kontext (λ (x) x)])
+(define (deriveAutomatonGoExpr automaton-name t)
+  (let go ([t t] [automaton-state-old-new-var-pairs '()] [kontext (λ (x) x)])
     (match t
       [`(let ([,x (,f ,args ...)]) ,body)
        #:when (check-arity? f (length args)) ; XXX
@@ -118,24 +118,24 @@
              [dx (d-mapper x)]
              [derX (der-mapper (cons f x))]
              [derXp (der-mapper-p (cons f x))])
-         (go body (cons (cons derX derXp) params)
+         (go body (cons (cons derX derXp) automaton-state-old-new-var-pairs)
              (λ (content)
                (kontext
                 `(let ([,dxp (,derX ,@(map deriveP args))])
                    (let ([,dx (car ,dxp)])
                      (let ([,derXp (cdr ,dxp)])
                        ,content)))))))]
-      [(? var?) (values (kontext `(cons ,(d-mapper t) (,name ,@(map cdr params)))) (map car params))]
-      [(? Value?) (values (kontext t) (map car params))])))
+      [(? var?) (values (kontext `(cons ,(d-mapper t) (,automaton-name ,@(map cdr automaton-state-old-new-var-pairs)))) (map car automaton-state-old-new-var-pairs))]
+      [(? Value?) (values (kontext t) (map car automaton-state-old-new-var-pairs))])))
 
 ; Changed for the "automaton" variant.
 (define (deriveDecl t)
   (match t
     [`(λ (,args ...) ,fun-body)
-     (let*-values ([(name) (gensym-preserving 'make-automaton)]
-                   [(automaton-body params) (deriveAutomatonGoExpr name fun-body)])
-       `(letrec ([,name (λ (,@params) (λ (,@(map derivePVar args)) #;,(deriveP fun-body) ,automaton-body))])
-          (,name . ,params)))
+     (let*-values ([(automaton-name) (gensym-preserving 'make-automaton)]
+                   [(automaton-body automaton-state-vars) (deriveAutomatonGoExpr automaton-name fun-body)])
+       `(letrec ([,automaton-name (λ (,@automaton-state-vars) (λ (,@(map derivePVar args)) ,automaton-body))])
+          (,automaton-name . ,automaton-state-vars)))
      ]))
 ; (fix automaton.
 ;  (λ (fvs) (dArgs) derivative... (dRes, automaton newFVs)) fvs)
