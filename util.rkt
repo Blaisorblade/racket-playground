@@ -1,10 +1,11 @@
 #lang racket
 
 (provide (all-defined-out))
-(define-syntax show
-  (syntax-rules ()
-    [(show expr)
-     (printf "~a: \"~a\"\n" 'expr expr)]))
+(define-syntax-rule (format-show expr)
+  (format "~a: \"~a\"" 'expr expr))
+
+(define-syntax-rule (show expr)
+  (printf "~a\n"(format-show expr)))
 
 (define-syntax show-def
   (syntax-rules ()
@@ -26,3 +27,7 @@
      (begin
        (define id val)
        (printf "~a -> \"~a\"\n" '(define id val) id))]))
+
+(module+ test
+  (require rackunit)
+  (check-equal? (format-show (+ 1 2)) "(+ 1 2): \"3\""))
